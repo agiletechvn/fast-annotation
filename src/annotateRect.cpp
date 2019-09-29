@@ -74,7 +74,7 @@ void CallBackFunc(int event, int x, int y, int flags, void *userdata) {
       height = width * (*cc).ratio;
       orientation =
           (atan2(p2.y - p1.y, p2.x - p1.x) - asin(height / sqrt(hyp_2))) *
-          180.0 / 3.1415; //
+          180.0 / CV_PI; //
       (*cc).r = RotatedRect(p_center, Size2f(width, height), orientation);
     } else {
       Point2f clicked_point((float)x, (float)y);
@@ -128,8 +128,8 @@ void displayRR(couple &cc, string export_dir) {
       displayRotatedRectangle(copy_image, ddd, yellow);
       arrowedLine(copy_image, ddd.center,
                   ddd.center +
-                      Point2f(100.0 * cos((ddd.angle - 90) * 3.141516 / 180.0),
-                              100.0 * sin((ddd.angle - 90) * 3.141516 / 180.0)),
+                      Point2f(100.0 * cos((ddd.angle - 90) * CV_PI / 180.0),
+                              100.0 * sin((ddd.angle - 90) * CV_PI / 180.0)),
                   Scalar(0, 0, 0), 1, LINE_AA);
     }
   }
@@ -145,8 +145,8 @@ void displayRR(couple &cc, string export_dir) {
       displayRotatedRectangle(copy_image, ddd, green);
       arrowedLine(copy_image, ddd.center,
                   ddd.center +
-                      Point2f(100.0 * cos((ddd.angle - 90) * 3.141516 / 180.0),
-                              100.0 * sin((ddd.angle - 90) * 3.141516 / 180.0)),
+                      Point2f(100.0 * cos((ddd.angle - 90) * CV_PI / 180.0),
+                              100.0 * sin((ddd.angle - 90) * CV_PI / 180.0)),
                   Scalar(0, 0, 0), 1, LINE_AA);
     }
   }
@@ -161,8 +161,8 @@ void displayRR(couple &cc, string export_dir) {
     displayRotatedRectangle(copy_image, rrrr, blue);
     arrowedLine(copy_image, rrrr.center,
                 rrrr.center +
-                    Point2f(100.0 * cos((rrrr.angle - 90) * 3.141516 / 180.0),
-                            100.0 * sin((rrrr.angle - 90) * 3.141516 / 180.0)),
+                    Point2f(100.0 * cos((rrrr.angle - 90) * CV_PI / 180.0),
+                            100.0 * sin((rrrr.angle - 90) * CV_PI / 180.0)),
                 Scalar(0, 0, 0));
   }
 

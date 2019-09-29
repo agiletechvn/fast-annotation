@@ -22,6 +22,7 @@ struct couple {
   string name;
   Mat image;
   // current rectangle
+  char classe = '0';
   RotatedRect r;
   int border_right;
   int border_left;
@@ -34,13 +35,14 @@ struct couple {
   // list pair of annotated rectangles
   std::vector<anno_pair> annos;
   int mode;
-  float image_factor;
+  //  float image_factor;
   float ratio;
 };
 
 static float height;
 static float width;
 static float orientation;
+static int min_move = 5;
 const float scale_factor = 1.07f;
 const float fast_scale_factor = 1.5;
 const int orientation_step = 2;
@@ -89,7 +91,7 @@ void CallBackFunc(int event, int x, int y, int flags, void *userdata) {
           width = it->second.size.width;
           height = it->second.size.height;
           orientation = it->second.angle;
-          cc->name = it->first;
+          cc->classe = it->first;
           clicked_point = it->second.center;
           cc->annos.erase(it);
           break;
@@ -101,6 +103,16 @@ void CallBackFunc(int event, int x, int y, int flags, void *userdata) {
     }
     displayRR((*cc));
   }
+}
+
+void drawRotatedRect(const Mat &image, const RotatedRect &rrect,
+                     const Scalar &color) {
+  displayRotatedRectangle(image, rrect, color);
+  arrowedLine(image, rrect.center,
+              rrect.center +
+                  Point2f(100.0 * cos((rrect.angle - 90) * CV_PI / 180.0),
+                          100.0 * sin((rrect.angle - 90) * CV_PI / 180.0)),
+              Scalar(0, 0, 0), 1, LINE_AA);
 }
 
 // display image and rectangles
@@ -125,12 +137,7 @@ void displayRR(couple &cc, string export_dir) {
     if (cc.cross)
       displayCross(copy_image, ddd.center, yellow);
     else {
-      displayRotatedRectangle(copy_image, ddd, yellow);
-      arrowedLine(copy_image, ddd.center,
-                  ddd.center +
-                      Point2f(100.0 * cos((ddd.angle - 90) * CV_PI / 180.0),
-                              100.0 * sin((ddd.angle - 90) * CV_PI / 180.0)),
-                  Scalar(0, 0, 0), 1, LINE_AA);
+      drawRotatedRect(copy_image, ddd, yellow);
     }
   }
 
@@ -142,12 +149,8 @@ void displayRR(couple &cc, string export_dir) {
     if (cc.cross)
       displayCross(copy_image, ddd.center, green);
     else {
-      displayRotatedRectangle(copy_image, ddd, green);
-      arrowedLine(copy_image, ddd.center,
-                  ddd.center +
-                      Point2f(100.0 * cos((ddd.angle - 90) * CV_PI / 180.0),
-                              100.0 * sin((ddd.angle - 90) * CV_PI / 180.0)),
-                  Scalar(0, 0, 0), 1, LINE_AA);
+
+      drawRotatedRect(copy_image, ddd, green);
     }
   }
 
@@ -155,15 +158,9 @@ void displayRR(couple &cc, string export_dir) {
   if (cc.init) {
     cout << "Display rectangle " << cc.r.center.x << "," << cc.r.center.y << ","
          << cc.r.size.width << "," << cc.r.size.height << endl;
-    RotatedRect rrrr =
-        RotatedRect(cc.r.center + Point2f(cc.border_left, cc.border_top),
-                    cc.r.size, cc.r.angle);
-    displayRotatedRectangle(copy_image, rrrr, blue);
-    arrowedLine(copy_image, rrrr.center,
-                rrrr.center +
-                    Point2f(100.0 * cos((rrrr.angle - 90) * CV_PI / 180.0),
-                            100.0 * sin((rrrr.angle - 90) * CV_PI / 180.0)),
-                Scalar(0, 0, 0));
+    RotatedRect rrrr(cc.r.center + Point2f(cc.border_left, cc.border_top),
+                     cc.r.size, cc.r.angle);
+    drawRotatedRect(copy_image, rrrr, blue);
   }
 
   if (export_dir == "") {
@@ -175,7 +172,7 @@ void displayRR(couple &cc, string export_dir) {
 }
 
 // save the annotated rectangle
-void saveRR(couple &cc, float factor, char classe,
+void saveRR(couple &cc, float factor,
             const std::string &csv_file) { // image, outfile
   if (cc.r.center.x != 0) {
 
@@ -186,17 +183,27 @@ void saveRR(couple &cc, float factor, char classe,
     int new_y = (int)(((float)cc.r.center.y - cc.border_top) / factor);
     int new_w = (int)(((float)cc.r.size.width) / factor);
     int new_h = (int)(((float)cc.r.size.height) / factor);
-    cout << "Save " << classe << "," << new_x << ":" << new_y << ":" << new_w
+    cout << "Save " << cc.classe << "," << new_x << ":" << new_y << ":" << new_w
          << ":" << new_h << endl;
 
-    auto new_rrect =
-        RotatedRect(Point(new_x * factor, new_y * factor),
-                    Size(new_w * factor, new_h * factor), cc.r.angle);
-    cc.annos.push_back({classe, new_rrect});
+    RotatedRect new_rrect(Point(new_x * factor, new_y * factor),
+                          Size(new_w * factor, new_h * factor), cc.r.angle);
+    cc.annos.push_back({cc.classe, new_rrect});
 
     // loop all rotated rect and save 4 points with labels
-    outfile << classe << "," << new_x << "," << new_y << "," << new_w << ","
-            << new_h << "," << cc.r.angle << endl;
+    // x1,y1,x2,y2,x3,y3,x4,y4,classe,angle
+    for (auto const &anno : cc.annos) {
+      Point2f vertices[4];
+      anno.second.points(vertices);
+      for (auto const &vertice : vertices) {
+        outfile << static_cast<int>(vertice.x / factor) << ","
+                << static_cast<int>(vertice.y / factor) << ",";
+      }
+      outfile << anno.first << "," << anno.second.angle << endl;
+    }
+    //    outfile << classe << "," << new_x << "," << new_y << "," << new_w <<
+    //    ","
+    //            << new_h << "," << cc.r.angle << endl;
     outfile.flush();
     outfile.close();
 
@@ -248,7 +255,6 @@ int annotate(char *input_dir, float ratio, string init_rectangles_file,
   height = ratio * 100.0;
   width = 100.0;
   orientation = 0.0;
-  char classe = '0';
 
   while ((entry = readdir(dir)) != nullptr) {
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
@@ -275,7 +281,7 @@ int annotate(char *input_dir, float ratio, string init_rectangles_file,
       couple cc;
       cc.ratio = ratio;
       cc.name = std::string(entry->d_name);
-      cc.image_factor = image.factor;
+      //      cc.image_factor = image.factor;
       cout << "Image factor: " << image.factor << endl;
       cc.cross = cross;
       cc.mode = 1;
@@ -293,19 +299,30 @@ int annotate(char *input_dir, float ratio, string init_rectangles_file,
       cout << "image_path " << image_path << endl;
 
       // add previously annotated rectangles
-      for (int i = 0; i < input.size(); i++) {
-        //        if (getAbsolutePath(csv_dir_path + input[i][0]) ==
-        //            getAbsolutePath(image_path)) {
-        char classe = input[i][0][0];
-        RotatedRect rrd(Point2f(stof(input[i][1]) * image.factor,
-                                stof(input[i][2]) * image.factor),
-                        Size2f(stof(input[i][3]) * image.factor,
-                               stof(input[i][4]) * image.factor),
-                        stof(input[i][5]));
+      for (auto const &row : input) {
+        if (row.size() < 10)
+          continue;
+        // just first 3 points are ok, but still stores 4 points for the future
+        array<Point2f, 4> vertices;
+        int start_index = 0;
+        for (auto &vertice : vertices) {
+          vertice.x = stof(row[start_index++]) * image.factor;
+          vertice.y = stof(row[start_index++]) * image.factor;
+        }
+        char classe = row[8][0];
+        RotatedRect rrd = minAreaRect(vertices);
+        // for sure
+        bool need_swap = (ratio < 1 ? rrd.size.height > rrd.size.width
+                                    : rrd.size.height < rrd.size.width);
+        if (need_swap)
+          swap(rrd.size.height, rrd.size.width);
+        // re-assign angle
+        rrd.angle = stof(row[9]);
+
         max_bounding_box = max_bounding_box | rrd.boundingRect();
         cc.annos.push_back({classe, rrd});
       }
-      //        }
+
       cout << "Previously annotated rectangles : " << cc.annos.size() << endl;
 
       // work with init rectangles
@@ -364,10 +381,10 @@ int annotate(char *input_dir, float ratio, string init_rectangles_file,
         cout << "key " << k << endl;
 
         last_timer = new_timer;
-        new_timer = time(NULL);
+        new_timer = time(nullptr);
 
-        int seconds = difftime(new_timer, last_timer);
-        cout << "Time : " << seconds << endl;
+        int seconds = MAX(0, difftime(new_timer, last_timer));
+        cout << "Time : " << seconds << " s" << endl;
 
         std::vector<int>::iterator it = times.begin();
         it = times.insert(it, seconds);
@@ -378,16 +395,15 @@ int annotate(char *input_dir, float ratio, string init_rectangles_file,
           sum += times[i];
           cout << times[i] << ",";
         }
-        cout << endl << "Times " << sum << endl;
+        cout << endl << "Times " << sum << " s" << endl;
 
-        // if( k == '\t') {
-        //   cout << "Arrow keys for " << (cc.mode?"Fast":"Slow") << endl;
-        //   cc.mode = cc.mode?0:1;
-        //   displayRR(cc);
-        //
-        // } else
+        // processing keyboard
+        if (k == '\t') {
+          cout << "Arrow keys for " << (cc.mode ? "Fast" : "Slow") << endl;
+          cc.mode = cc.mode ? 0 : 1;
+          displayRR(cc);
 
-        if (k == 32) {
+        } else if (k == 32) {
           cout << "Change mode to ";
           if (mode) {
             mode = 0;
@@ -525,13 +541,13 @@ int annotate(char *input_dir, float ratio, string init_rectangles_file,
 
         } else if (k == 13 || k == 10) { // Enter
 
-          saveRR(cc, image.factor, classe, csv_file);
+          saveRR(cc, image.factor, csv_file);
 
         } else if (k == 43 || k == 95) { // +- change height
           cout << " key " << k << endl;
           if (cc.init) {
 
-            width += (k == 43 ? 5 : -5);
+            width += (k == 43 ? min_move : -min_move);
             cout << "New size : " << int(width) << "," << int(height) << endl;
 
             displayRR(cc);
@@ -540,16 +556,16 @@ int annotate(char *input_dir, float ratio, string init_rectangles_file,
           cout << " key " << k << endl;
           if (cc.init) {
 
-            height += (k == 61 ? 5 : -5);
+            height += (k == 61 ? min_move : -min_move);
             cout << "New size : " << int(width) << "," << int(height) << endl;
 
             displayRR(cc);
           }
         } else {
 
-          classe = (char)k;
-          cout << "Classe :" << classe << endl;
-          saveRR(cc, image.factor, classe, csv_file);
+          cc.classe = (char)k;
+          cout << "Classe :" << cc.classe << endl;
+          saveRR(cc, image.factor, csv_file);
         }
       }
     }

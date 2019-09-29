@@ -1,4 +1,4 @@
-# Fast Image Data Annotation Tool (FIAT)
+# Fast Image Data Annotation Tool (FIAT) for CTPN training process
 
 FIAT enables image data annotation, data augmentation, data extraction, and result visualisation/validation.
 
@@ -21,6 +21,7 @@ The philosophy of this tool is
 Requires OPENCV 3 and Google Protobuf.
 
 ### Build on Ubuntu 18.04
+
     sudo apt-get install caffe-cpu caffe-doc caffe-tools-cpu libcaffe-cpu-dev libcaffe-cpu1 python3-caffe-cpu
     sudo apt-get install libgoogle-glog-dev
     sudo apt-get install libprotobuf-dev libprotoc-dev protobuf-compiler
@@ -28,23 +29,21 @@ Requires OPENCV 3 and Google Protobuf.
     sudo apt-get install libopencv-contrib-dev libopencv-dev libopencv-photo-dev libopencv-shape-dev
     sudo apt-get install libopencv-contrib-dev libopencv-dev libopencv-photo-dev libopencv-shape-dev
     sudo apt-get install liblmdb-dev
-    make all
+    mkdir build && cd build && make
 
 ### File format
 
 Rectangle extraction tools create annotations CSV files in the RotatedRect file format. [This blog post will give you the reasons motivating this choice](http://christopher5106.github.io/computer/vision/2015/12/26/file-format-for-computer-vision-annotations.html).
 
-
 ### Annotation tool
 
 ```bash
-./bin/annotateRect [FLAGS] input_dir output_file.csv
+./bin/annotateRect [FLAGS] input_dir
 ```
 
 A tool used to annotate rectangles or to show the results (rectangles with `--init` option).
 
 ![data annotation](http://christopher5106.github.io/img/annotator_erase.png)
-
 
 **Meaning of the colors** :
 
@@ -60,17 +59,17 @@ A tool used to annotate rectangles or to show the results (rectangles with `--in
 
 - Use arrow keys to move the active rectangle (blue)
 
-    - move left (left arrow key)
-    - move right (right arrow key)
-    - move up (up arrow key)
-    - move down (down arrow key)
+  - move left (left arrow key)
+  - move right (right arrow key)
+  - move up (up arrow key)
+  - move down (down arrow key)
 
 - Press **FN** while using arrow keys to change orientation/scale of the active rectangle (blue)
 
-    - rotate left (left arrow key)
-    - rotate right (right arrow key)
-    - augment size (up arrow key)
-    - downsize (down arrow key)
+  - rotate left (left arrow key)
+  - rotate right (right arrow key)
+  - augment size (up arrow key)
+  - downsize (down arrow key)
 
 For platforms for which pressing FN with arrow key does not change key value, press **Space bar** to change into "Rotation/Scale" mode and use arrow keys.
 
@@ -83,7 +82,6 @@ For platforms for which pressing FN with arrow key does not change key value, pr
 - **Any letter**: save the currently active rectangle (blue) with this letter as category / class . For example "0", if there is only one category. The blue rectangle will become yellow.
 
 - **ENTER**: save the letter with the same class as previously.
-
 
 FLAGS :
 
@@ -99,11 +97,13 @@ FLAGS :
 
 NOTES :
 
-- the annotation tool can be stopped and launched again : it will resume the work from *output_file.csv*, previously annotated rectangles appear in yellow.
+- the annotation tool can be stopped and launched again : it will resume the work from _input/label/gt_file.txt_, previously annotated rectangles appear in yellow.
 
 - in case the init rectangles are bigger than the image, a white border is added to the image to show the rectangles outside the image.
 
-- although annotation tool can read images in an output_file.csv or init_file.csv outside current exe directory (by adding the CSV dir to the image path), it will save images with the input_dir as base path. So, when annotating, execute the command in the same directory as the output_file.csv.
+- although annotation tool can read images in an input/label or init_file.csv outside current exe directory (by adding the CSV dir to the image path), it will save images with the input_dir as base path. So, when annotating, execute the command in the same directory as the input/label.
+
+- click near the center to edit the label
 
 EXAMPLE :
 
@@ -137,11 +137,11 @@ And press the key corresponding to its class, for example 'e'.
 
 ![](tutorial/result.png)
 
-The output annotation file in CSV format *out.csv* will look like :
+The output annotation file in CSV format _out.csv_ will look like :
 
 ```
-./pic.jpg,a,709,816,826,1116,-14.6958
-./pic.jpg,e,1510,607,741,1001,6.32224
+1547,1390,1548,1234,2404,1241,2403,1397,d,0.502069
+988,2143,984,1775,3043,1752,3047,2120,d,-0.621578
 ```
 
 At any time, you can view how the annotations are, and potentially add new annotations with the same command :
@@ -172,7 +172,7 @@ For example in the previous example,
 ./bin/extractRect out.csv out
 ```
 
-will create an output directory *out* with two subdirectories corresponding to each label, *out/a* and *out/b* and its corresponding extracted objects, and a CSV file *out/results.csv* with image path, labels and new rectangle coordinates after the extraction.
+will create an output directory _out_ with two subdirectories corresponding to each label, _out/a_ and _out/b_ and its corresponding extracted objects, and a CSV file _out/results.csv_ with image path, labels and new rectangle coordinates after the extraction.
 
 ![](tutorial/a.jpg) ![](tutorial/e.jpg)
 
@@ -200,7 +200,6 @@ EDIT RECTANGLES
 
 ![](tutorial/a_with_factor.jpg) ![](tutorial/e_with_factor.jpg)
 
-
 - `--offset_x` and `--offset_y` add an offset on each axis of the rectangle, in percentage of the width of the rectangle. In the example, select the titles of the book with the command `./bin/extractRect out3.csv out12 --offset_y=0.5 --factor_height=0.3`
 
 ![](tutorial/a_subselection.jpg) ![](tutorial/e_subselection.jpg)
@@ -208,7 +207,6 @@ EDIT RECTANGLES
 - `--merge` : if multiple bounding box per images, will extract the global bounding box containing all rectangles in each image. In the example : `./bin/extractRect out.csv out --merge` will produce :
 
 ![](tutorial/merge.jpg)
-
 
 - `--merge_line` : If multiple rectangle per images, merge rectangles that are roughly on the same line.
 
@@ -230,7 +228,6 @@ NOISE FLAGS
 
 - `--samples` is the number of sample to extract per image. Default is 1. Useful in combination with noise option.
 
-
 OUTPUT FLAGS
 
 - `--full_image` will not extract the rectangle along the given annotation. Always true in `--backend=opencv` output mode.
@@ -247,17 +244,15 @@ OUTPUT FLAGS
 
 - `--append` append new extracts to an existing directory. Available for `--backend=directory` only.
 
-
 NEGATIVE GENERATION
 
 - `--neg_per_pos` defines the number of negative samples per positives to extract. By default, no negative (0).
 
 - `--neg_width=0.2` defines the width of negative samples to extract, in pourcentage to the largest image dimension (width or height).
 
-
 # License conditions
 
-Copyright (c) 2016 Christopher5106
+Copyright (c) 2016 Christopher5106, modified 2019 tubackkhoa@gmail.com
 
 This tool has been developped for a work at Axa, and is a contribution to OpenSource by Axa.
 
